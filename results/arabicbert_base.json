@@ -1,0 +1,34 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": null,
+  "n": 200,
+  "baseline": {
+    "cer": 0.07891622801648508,
+    "wer": 0.3843784378437844,
+    "n": 200
+  },
+  "corrected": {
+    "cer": 2.2092055331129883,
+    "wer": 2.547854785478548,
+    "n": 200
+  },
+  "cer_reduction_pct": -2699.431230610135,
+  "regressions": 200,
+  "by_severity": {
+    "light (<8%)": {
+      "n": 60,
+      "baseline_cer": 0.04204293116210215,
+      "model_cer": 2.5718726868985935
+    },
+    "medium (8-14%)": {
+      "n": 80,
+      "baseline_cer": 0.07934943321833415,
+      "model_cer": 2.0302612124199113
+    },
+    "heavy (>14%)": {
+      "n": 60,
+      "baseline_cer": 0.11108189825161036,
+      "model_cer": 2.1258051794399897
+    }
+  }
+}

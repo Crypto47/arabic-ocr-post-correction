@@ -56,6 +56,9 @@ def main() -> None:
     ap.add_argument("--eval-file", type=Path, default=Path("data/processed/eval.jsonl"))
     ap.add_argument("--limit", type=int, default=500)
     ap.add_argument("--batch-size", type=int, default=8)
+    ap.add_argument("--max-drift", type=float, default=None,
+                    help="reject corrections diverging from the input by more "
+                         "than this CER (inference-time hallucination guard)")
     ap.add_argument("--max-new-tokens", type=int, default=None,
                     help="default: derived from input length")
     ap.add_argument("--out", type=Path, default=Path("results/eval.json"))
@@ -74,7 +77,8 @@ def main() -> None:
 
     model, tokenizer = load(args.base, args.adapter)
     preds = correct(model, tokenizer, noisy, batch_size=args.batch_size,
-                    max_new_tokens=args.max_new_tokens)
+                    max_new_tokens=args.max_new_tokens,
+                    max_drift=args.max_drift)
 
     baseline = corpus_rates(clean, noisy)   # what the OCR engine handed you
     corrected = corpus_rates(clean, preds)  # what the model handed you

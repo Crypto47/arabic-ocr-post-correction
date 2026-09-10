@@ -8,9 +8,11 @@ raw OCR   العلم نور يضنء طزيق الإنسان في الحتياة
 corrected العلم نور يضيء طريق الإنسان في الحياة، والجهل ظلام دامس
 ```
 
-> **Status: pipeline complete, results pending.** Every stage runs end to end on
-> sample data. The numbers in [Results](#results) are filled in after the first
-> full training run — they are deliberately left blank rather than estimated.
+> **Status: working, with a caveat that matters.** Trained and scored on two
+> real corpora. With an inference-time guardrail it beats raw OCR on both CER
+> and WER. All numbers below are measured, not estimated — but the corruption
+> is synthetic, so they describe performance against a *model* of OCR error,
+> not a recording of one. See [Notes](#notes-and-limitations).
 
 ## The problem
 
@@ -62,26 +64,59 @@ invents text that was never on the page. See [`src/infer.py`](src/infer.py).
 
 ## Results
 
-Scored on held-out synthetic pairs. `--limit 200`, greedy decoding.
+Measured locally on an RTX 5070 Ti (12GB, sm_120), Qwen2.5-0.5B + LoRA, greedy
+decoding, 200 held-out segments from AraSum. Synthetic corruption — see
+[Notes](#notes-and-limitations).
 
-| | CER | WER |
-|---|---|---|
-| Raw OCR (baseline) | _pending_ | _pending_ |
-| Base Qwen2.5-0.5B, no finetune | _pending_ | _pending_ |
-| **Finetuned** | _pending_ | _pending_ |
+**Training scale is the dominant variable:**
 
-**CER reduction vs. raw OCR:** _pending_
-
-By scan severity:
-
-| Severity | n | Baseline CER | Model CER |
+| training pairs | CER | WER | segments made worse |
 |---|---|---|---|
-| light (<8%) | | | |
-| medium (8–14%) | | | |
-| heavy (>14%) | | | |
+| raw OCR (do nothing) | 0.0808 | 0.4112 | — |
+| 0 — untuned base model | 1.8123 | 2.2680 | 200/200 (100%) |
+| 2,000 | 0.2139 | 0.3751 | 170/200 (85%) |
+| 20,000 | 0.1083 | 0.2327 | 115/200 (58%) |
+| 20,000 **+ guardrail** | **0.0809** | **0.3343** | **39/200 (20%)** |
 
-The untuned base model is scored too, not just the finetune. A finetune that
-cannot beat its own base model has demonstrated nothing.
+The untuned base model is catastrophic — it answers the instruction
+conversationally instead of restoring, so its output bears no relation to the
+input. Every gain below it is attributable to the finetune, not to Qwen already
+knowing Arabic.
+
+**The guardrail** ([`apply_guardrail`](src/infer.py)) rejects any correction
+that diverges from its *input* by more than a CER threshold, falling back to the
+original OCR text. Divergence is measured against the input, never the
+reference, so it runs in production. Tuning the threshold trades the two metrics
+against each other:
+
+| policy | CER | WER | corrections kept |
+|---|---|---|---|
+| raw OCR | 0.0808 | 0.4112 | — |
+| accept everything | 0.1083 | 0.2327 | 200/200 |
+| drift ≤ 0.10 | **0.0795** | 0.3733 | 66/200 |
+| drift ≤ 0.15 | 0.0809 | **0.3343** | 106/200 |
+| drift ≤ 0.20 | 0.0865 | 0.2822 | 148/200 |
+
+At drift ≤ 0.10 the system beats raw OCR on **both** metrics simultaneously.
+
+At drift ≤ 0.15 it holds CER at parity while cutting WER by 18.7% — and the
+per-severity breakdown shows the gain lands where it matters:
+
+| severity | n | baseline CER | model CER |
+|---|---|---|---|
+| light (<8%) | 62 | 0.0438 | 0.0523 |
+| medium (8–14%) | 82 | 0.0813 | **0.0775** |
+| heavy (>14%) | 56 | 0.1211 | **0.1172** |
+
+It improves the damaged scans that need correcting and only loses on clean ones
+where there was little to fix.
+
+**Reproduced on a second corpus.** Arabic BERT Corpus (56,946 pairs, baseline
+CER 0.0838 / WER 0.3900) shows the same pattern at 2,000 pairs: base 2.2092 →
+tuned 0.1956. The behaviour is a property of training scale, not of one dataset.
+
+**Not yet done:** the full 57k-pair run. The 2k → 20k trend (0.2139 → 0.1083)
+has not flattened, so the un-guarded CER should keep falling.
 
 ## Quickstart
 

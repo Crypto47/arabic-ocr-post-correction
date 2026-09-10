@@ -1,0 +1,34 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": "outputs/arabicbert_small/final",
+  "n": 200,
+  "baseline": {
+    "cer": 0.07891622801648508,
+    "wer": 0.3843784378437844,
+    "n": 200
+  },
+  "corrected": {
+    "cer": 0.1956175786509977,
+    "wer": 0.39053905390539057,
+    "n": 200
+  },
+  "cer_reduction_pct": -147.88004136504657,
+  "regressions": 181,
+  "by_severity": {
+    "light (<8%)": {
+      "n": 60,
+      "baseline_cer": 0.04204293116210215,
+      "model_cer": 0.12198371576609919
+    },
+    "medium (8-14%)": {
+      "n": 80,
+      "baseline_cer": 0.07934943321833415,
+      "model_cer": 0.20187284376540168
+    },
+    "heavy (>14%)": {
+      "n": 60,
+      "baseline_cer": 0.11108189825161036,
+      "model_cer": 0.25266202182200603
+    }
+  }
+}
