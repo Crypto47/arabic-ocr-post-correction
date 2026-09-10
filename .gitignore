@@ -50,3 +50,6 @@ lightning_logs/
 Thumbs.db
 .vscode/
 .idea/
+
+# --- Personal learning notes, deliberately not published ---
+guide/
