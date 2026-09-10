@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
 import random
 import re
@@ -28,6 +29,11 @@ INSTRUCTION = "صحّح أخطاء المسح الضوئي في النص الت�
 SENTENCE_END = re.compile(r"(?<=[.!?؟।\n])\s+")
 ARABIC_CHAR = re.compile(r"[\u0621-\u064A]")
 
+
+# csv defaults to a 128 KB field cap; a single long article blows past it and
+# aborts the whole read. sys.maxsize overflows the C long on Windows, so use a
+# large finite value.
+csv.field_size_limit(10 ** 9)
 
 SUPPORTED = {".txt", ".jsonl", ".json", ".csv", ".tsv", ".parquet"}
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif", ".pdf"}
@@ -63,16 +69,87 @@ def _diagnose(path: Path) -> str:
     return "\n".join(msg)
 
 
+GUESSES = ("text", "content", "body", "article", "sentence", "document",
+           "نص", "المحتوى", "المقال")
+
+
+def _norm(name: str) -> str:
+    """Kaggle CSV exports frequently carry a UTF-8 BOM on the first column,
+    so 'article' arrives as '\\ufeffarticle' and an exact match silently fails."""
+    return name.replace("﻿", "").strip().lower()
+
+
 def _pick_text_column(header: list[str], preferred: str) -> str | None:
     """Kaggle Arabic corpora label their text column half a dozen ways."""
-    if preferred in header:
-        return preferred
-    for guess in ("text", "content", "body", "article", "sentence",
-                  "Text", "Content", "Article", "نص", "المحتوى"):
-        if guess in header:
-            return guess
-    # Fall back to the widest-looking column rather than giving up.
+    norm = {_norm(h): h for h in header}
+    if _norm(preferred) in norm:
+        return norm[_norm(preferred)]
+    for guess in GUESSES:
+        if guess in norm:
+            return norm[guess]
     return header[0] if header else None
+
+
+def _looks_like_header(row: list[str]) -> bool:
+    """A header row is short identifiers. If the first row holds paragraphs,
+    the file is headerless and that row is data we must not discard."""
+    if not row:
+        return False
+    return max(len(c) for c in row) <= 80
+
+
+def _sniff_delimiter(sample: str, suffix: str) -> str:
+    """Trust content over the file extension. AraSum ships a tab-separated
+    file named .csv; reading it as comma-separated yields one giant column."""
+    try:
+        return csv.Sniffer().sniff(sample, delimiters=",\t;|").delimiter
+    except csv.Error:
+        return "\t" if suffix == ".tsv" else ","
+
+
+def _widest_column(rows: list[list[str]]) -> int:
+    """For a headerless file, the prose column is the consistently longest."""
+    width = max((len(r) for r in rows), default=0)
+    if width == 0:
+        return 0
+    means = [
+        sum(len(r[i]) for r in rows if i < len(r)) / len(rows)
+        for i in range(width)
+    ]
+    return means.index(max(means))
+
+
+def _read_delimited(path: Path, preferred: str):
+    """Yield the text column from a CSV/TSV, header or not, BOM or not."""
+    with path.open(encoding="utf-8-sig", errors="replace", newline="") as fh:
+        sample = fh.read(200_000)
+    delim = _sniff_delimiter(sample, path.suffix.lower())
+
+    with path.open(encoding="utf-8-sig", errors="replace", newline="") as fh:
+        reader = csv.reader(fh, delimiter=delim)
+        try:
+            first = next(reader)
+        except StopIteration:
+            return
+
+        if _looks_like_header(first):
+            col = _pick_text_column(first, preferred)
+            idx = first.index(col) if col in first else 0
+            print(f"  {path.name}: delim={delim!r} column={_norm(col)!r}")
+            rows = reader
+        else:
+            buffered = [first]
+            for row in reader:
+                buffered.append(row)
+                if len(buffered) >= 50:
+                    break
+            idx = _widest_column(buffered)
+            print(f"  {path.name}: delim={delim!r} headerless, column index {idx}")
+            rows = itertools.chain(buffered, reader)
+
+        for row in rows:
+            if idx < len(row) and (value := row[idx].strip()):
+                yield value
 
 
 def iter_text(path: Path, text_field: str):
@@ -106,16 +183,7 @@ def iter_text(path: Path, text_field: str):
                 if value.strip():
                     yield value
         elif suffix in {".csv", ".tsv"}:
-            delim = "\t" if suffix == ".tsv" else ","
-            with f.open(encoding="utf-8", errors="replace", newline="") as fh:
-                reader = csv.DictReader(fh, delimiter=delim)
-                col = _pick_text_column(reader.fieldnames or [], text_field)
-                if col is None:
-                    continue
-                print(f"  {f.name}: using column {col!r}")
-                for row in reader:
-                    if value := (row.get(col) or "").strip():
-                        yield value
+            yield from _read_delimited(f, text_field)
         elif suffix == ".jsonl":
             with f.open(encoding="utf-8", errors="replace") as fh:
                 for line in fh:
