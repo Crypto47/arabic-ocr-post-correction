@@ -24,6 +24,9 @@ data:
 training:
   output_dir: outputs/arabic-ocr-post-correction
   num_train_epochs: 2
+  # Measured on a 12GB card: bs=8 gives 21.6 samples/s, bs=16 collapses to
+  # 2.6 because the activations spill out of VRAM into shared system memory
+  # (Windows/WDDM does this silently instead of raising OOM).
   per_device_train_batch_size: 8
   gradient_accumulation_steps: 4      # effective batch = 32
   learning_rate: 2.0e-4
@@ -31,7 +34,10 @@ training:
   warmup_ratio: 0.03
   weight_decay: 0.01
   optim: adamw_torch
-  gradient_checkpointing: true
+  # Off deliberately. Checkpointing trades ~40% throughput for memory, and a
+  # 0.5B model with LoRA does not need it on a 16GB T4, let alone anything
+  # larger. Turn it back on only if you scale the base model up.
+  gradient_checkpointing: false
   logging_steps: 25
   eval_strategy: epoch
   save_strategy: epoch

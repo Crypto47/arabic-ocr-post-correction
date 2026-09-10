@@ -7,6 +7,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import dataclasses
+import math
+from importlib.metadata import version
 from pathlib import Path
 
 import torch
@@ -26,6 +29,35 @@ def precision_flags() -> dict[str, bool]:
         return {"bf16": True, "fp16": False}
     print("bf16 unsupported on this GPU — falling back to fp16.")
     return {"bf16": False, "fp16": True}
+
+
+def adapt_to_installed_trl(train_cfg: dict, n_train: int) -> dict:
+    """Reconcile the config with whatever SFTConfig the environment has.
+
+    TRL renames training arguments between majors — 1.x dropped warmup_ratio
+    for warmup_steps — and passing a stale name raises TypeError only after
+    the dataset and model have already loaded. Translate what we can, drop
+    what we cannot, and say so rather than failing minutes into a run.
+    """
+    cfg = dict(train_cfg)
+    accepted = {f.name for f in dataclasses.fields(SFTConfig)}
+
+    if "warmup_ratio" in cfg and "warmup_ratio" not in accepted:
+        ratio = cfg.pop("warmup_ratio")
+        per_step = (cfg.get("per_device_train_batch_size", 8)
+                    * cfg.get("gradient_accumulation_steps", 1))
+        total = math.ceil(n_train / per_step) * cfg.get("num_train_epochs", 1)
+        cfg["warmup_steps"] = int(total * ratio)
+        print(f"warmup_ratio {ratio} -> warmup_steps {cfg['warmup_steps']} "
+              f"(of {total} total steps)")
+
+    dropped = sorted(set(cfg) - accepted)
+    for key in dropped:
+        cfg.pop(key)
+    if dropped:
+        print(f"WARNING: dropped config keys not supported by trl "
+              f"{version('trl')}: {', '.join(dropped)}")
+    return cfg
 
 
 def build_model_and_tokenizer(cfg: dict, dtype: torch.dtype):
@@ -93,6 +125,9 @@ def main() -> None:
         bias="none",
         task_type="CAUSAL_LM",
     )
+
+    n_train = len(dataset["train"])
+    train_cfg = adapt_to_installed_trl(train_cfg, n_train)
 
     sft_config = SFTConfig(
         max_length=data_cfg["max_seq_length"],

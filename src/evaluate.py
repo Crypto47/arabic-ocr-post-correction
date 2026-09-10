@@ -59,6 +59,10 @@ def main() -> None:
     ap.add_argument("--max-new-tokens", type=int, default=None,
                     help="default: derived from input length")
     ap.add_argument("--out", type=Path, default=Path("results/eval.json"))
+    ap.add_argument("--save-predictions", type=Path, default=None,
+                    help="write per-segment noisy/pred/reference JSONL. The "
+                         "aggregate rates say whether the model is working; "
+                         "only the predictions say how it is failing.")
     args = ap.parse_args()
 
     noisy, clean, rates = read_eval(args.eval_file, args.limit)
@@ -107,6 +111,18 @@ def main() -> None:
             "n": len(idx), "baseline_cer": b["cer"], "model_cer": m["cer"],
         }
         print(f"{name:<18}{len(idx):>5}{b['cer']:>10.4f}{m['cer']:>11.4f}")
+
+    if args.save_predictions:
+        args.save_predictions.parent.mkdir(parents=True, exist_ok=True)
+        with args.save_predictions.open("w", encoding="utf-8") as fh:
+            for n, c, p, r in zip(noisy, clean, preds, rates):
+                fh.write(json.dumps({
+                    "noisy": n, "prediction": p, "reference": c,
+                    "noise_rate": r,
+                    "cer_noisy": cer(c, n), "cer_pred": cer(c, p),
+                    "helped": cer(c, p) < cer(c, n),
+                }, ensure_ascii=False) + "\n")
+        print(f"Wrote {args.save_predictions}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps({
