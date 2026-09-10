@@ -56,6 +56,8 @@ def main() -> None:
     ap.add_argument("--eval-file", type=Path, default=Path("data/processed/eval.jsonl"))
     ap.add_argument("--limit", type=int, default=500)
     ap.add_argument("--batch-size", type=int, default=8)
+    ap.add_argument("--max-new-tokens", type=int, default=None,
+                    help="default: derived from input length")
     ap.add_argument("--out", type=Path, default=Path("results/eval.json"))
     args = ap.parse_args()
 
@@ -67,7 +69,8 @@ def main() -> None:
     from infer import correct, load  # heavy deps, only needed to actually run
 
     model, tokenizer = load(args.base, args.adapter)
-    preds = correct(model, tokenizer, noisy, batch_size=args.batch_size)
+    preds = correct(model, tokenizer, noisy, batch_size=args.batch_size,
+                    max_new_tokens=args.max_new_tokens)
 
     baseline = corpus_rates(clean, noisy)   # what the OCR engine handed you
     corrected = corpus_rates(clean, preds)  # what the model handed you
