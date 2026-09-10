@@ -8,11 +8,11 @@ raw OCR   العلم نور يضنء طزيق الإنسان في الحتياة
 corrected العلم نور يضيء طريق الإنسان في الحياة، والجهل ظلام دامس
 ```
 
-> **Status: working, with a caveat that matters.** Trained and scored on two
-> real corpora. With an inference-time guardrail it beats raw OCR on both CER
-> and WER. All numbers below are measured, not estimated — but the corruption
-> is synthetic, so they describe performance against a *model* of OCR error,
-> not a recording of one. See [Notes](#notes-and-limitations).
+> **Status: working.** Trained on 57k pairs and scored on two real corpora.
+> Cuts word error rate by 50% while improving character accuracy. All numbers
+> are measured, not estimated — but the corruption is synthetic, so they
+> describe performance against a *model* of OCR error rather than a recording
+> of one. See [Notes](#notes-and-limitations).
 
 ## The problem
 
@@ -64,59 +64,83 @@ invents text that was never on the page. See [`src/infer.py`](src/infer.py).
 
 ## Results
 
-Measured locally on an RTX 5070 Ti (12GB, sm_120), Qwen2.5-0.5B + LoRA, greedy
-decoding, 200 held-out segments from AraSum. Synthetic corruption — see
+Measured on an RTX 5070 Ti (12GB, sm_120), Qwen2.5-0.5B + LoRA, greedy decoding,
+200 held-out AraSum segments. Corruption is synthetic — see
 [Notes](#notes-and-limitations).
 
-**Training scale is the dominant variable:**
+### Headline
+
+| | CER | WER |
+|---|---|---|
+| Raw OCR (do nothing) | 0.0808 | 0.4112 |
+| Untuned Qwen2.5-0.5B | 1.8123 | 2.2680 |
+| **Finetuned (57k pairs)** | **0.0724** | **0.1765** |
+| **Finetuned + guardrail** | **0.0671** | **0.2042** |
+
+**Word error rate falls 41.1% → 20.4%, a 50.3% reduction, while character
+accuracy simultaneously improves 16.9%.** WER is the metric that matters:
+search, indexing and extraction all operate on whole words.
+
+The untuned base model scores 1.81 CER — above 1.0 means its output is not a
+damaged version of the truth but unrelated text. It answers the instruction
+conversationally instead of restoring. Every gain above is therefore
+attributable to the finetune, not to Qwen already knowing Arabic.
+
+### Training scale was the dominant variable
 
 | training pairs | CER | WER | segments made worse |
 |---|---|---|---|
-| raw OCR (do nothing) | 0.0808 | 0.4112 | — |
-| 0 — untuned base model | 1.8123 | 2.2680 | 200/200 (100%) |
-| 2,000 | 0.2139 | 0.3751 | 170/200 (85%) |
-| 20,000 | 0.1083 | 0.2327 | 115/200 (58%) |
-| 20,000 **+ guardrail** | **0.0809** | **0.3343** | **39/200 (20%)** |
+| 0 (untuned) | 1.8123 | 2.2680 | 200/200 |
+| 2,000 | 0.2139 | 0.3751 | 170/200 |
+| 20,000 | 0.1083 | 0.2327 | 115/200 |
+| **56,931** | **0.0724** | **0.1765** | **70/200** |
 
-The untuned base model is catastrophic — it answers the instruction
-conversationally instead of restoring, so its output bears no relation to the
-input. Every gain below it is attributable to the finetune, not to Qwen already
-knowing Arabic.
+Training loss 1.976 → 1.751 → 1.637; token accuracy 0.667 → 0.700 → 0.717.
 
-**The guardrail** ([`apply_guardrail`](src/infer.py)) rejects any correction
-that diverges from its *input* by more than a CER threshold, falling back to the
-original OCR text. Divergence is measured against the input, never the
-reference, so it runs in production. Tuning the threshold trades the two metrics
-against each other:
+### The guardrail
+
+[`apply_guardrail`](src/infer.py) rejects any correction diverging from its
+*input* by more than a CER threshold and falls back to the original text.
+Divergence is measured against the input, never the reference, so it runs in
+production. The threshold is an operating dial:
 
 | policy | CER | WER | corrections kept |
 |---|---|---|---|
 | raw OCR | 0.0808 | 0.4112 | — |
-| accept everything | 0.1083 | 0.2327 | 200/200 |
-| drift ≤ 0.10 | **0.0795** | 0.3733 | 66/200 |
-| drift ≤ 0.15 | 0.0809 | **0.3343** | 106/200 |
-| drift ≤ 0.20 | 0.0865 | 0.2822 | 148/200 |
+| accept everything | 0.0724 | **0.1765** | 200/200 |
+| drift ≤ 0.15 | **0.0667** | 0.2676 | 133/200 |
+| **drift ≤ 0.20** | **0.0671** | **0.2042** | 180/200 |
+| drift ≤ 0.30 | 0.0695 | 0.1781 | 195/200 |
 
-At drift ≤ 0.10 the system beats raw OCR on **both** metrics simultaneously.
+`drift ≤ 0.20` is the recommended default: near-best on both metrics at once.
+Tighten it for archives where nothing may be made worse; loosen it where
+findability outweighs character fidelity.
 
-At drift ≤ 0.15 it holds CER at parity while cutting WER by 18.7% — and the
-per-severity breakdown shows the gain lands where it matters:
+### Where the gain lands
 
 | severity | n | baseline CER | model CER |
 |---|---|---|---|
-| light (<8%) | 62 | 0.0438 | 0.0523 |
-| medium (8–14%) | 82 | 0.0813 | **0.0775** |
-| heavy (>14%) | 56 | 0.1211 | **0.1172** |
+| light (<8%) | 62 | 0.0438 | **0.0404** |
+| medium (8–14%) | 82 | 0.0813 | **0.0713** |
+| heavy (>14%) | 56 | 0.1211 | **0.1092** |
 
-It improves the damaged scans that need correcting and only loses on clean ones
-where there was little to fix.
+It improves every severity band, including the badly degraded scans that
+actually need correcting. On the 123/200 segments it helps, CER drops 0.0816 →
+0.0377; 20/200 come back exactly correct.
 
-**Reproduced on a second corpus.** Arabic BERT Corpus (56,946 pairs, baseline
-CER 0.0838 / WER 0.3900) shows the same pattern at 2,000 pairs: base 2.2092 →
-tuned 0.1956. The behaviour is a property of training scale, not of one dataset.
+```
+noisy  العراـق، لكْب احتمال ظهور مطالب جدد ة من قبل البرلمان ئلعراقي".
+fixed  العراق، لكن احتمال ظهور مطالب جديدة من قبل البرلمان العراقي".
 
-**Not yet done:** the full 57k-pair run. The 2k → 20k trend (0.2139 → 0.1083)
-has not flattened, so the un-guarded CER should keep falling.
+noisy  وأضا ف أن "بريطايا يمكن أن تؤثر على الاتحاد الأوروبى عبر الـعمل هع شركائها".
+fixed  وأضاف أن "بريطانيا يمكن أن تؤثر على الاتحاد الأوروبي عبر العمل مع شركائها".
+```
+
+### Reproduced on a second corpus
+
+Arabic BERT Corpus (56,946 pairs, baseline CER 0.0838 / WER 0.3900) shows the
+same trajectory at 2,000 pairs: untuned 2.2092 → tuned 0.1956. The behaviour is
+a property of training scale, not of one dataset.
 
 ## Quickstart
 

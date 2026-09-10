@@ -1,0 +1,34 @@
+{
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "adapter": "outputs/arasum_full/final",
+  "n": 200,
+  "baseline": {
+    "cer": 0.08078875982472004,
+    "wer": 0.4112456392366099,
+    "n": 200
+  },
+  "corrected": {
+    "cer": 0.07240731724281839,
+    "wer": 0.17648265955263698,
+    "n": 200
+  },
+  "cer_reduction_pct": 10.374515712440813,
+  "regressions": 70,
+  "by_severity": {
+    "light (<8%)": {
+      "n": 62,
+      "baseline_cer": 0.04375818419903972,
+      "model_cer": 0.04037538192928852
+    },
+    "medium (8-14%)": {
+      "n": 82,
+      "baseline_cer": 0.08126051164025848,
+      "model_cer": 0.0713463751438435
+    },
+    "heavy (>14%)": {
+      "n": 56,
+      "baseline_cer": 0.12106595924273483,
+      "model_cer": 0.10924876401784638
+    }
+  }
+}
