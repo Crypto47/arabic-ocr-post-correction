@@ -1,0 +1,19 @@
+# Training stack
+torch>=2.4.0
+transformers>=4.44.0
+datasets>=2.20.0
+accelerate>=0.33.0
+peft>=0.14.0
+trl>=0.20.0            # SFTConfig(max_length=...) + processing_class API
+pyyaml>=6.0
+
+# Publishing
+huggingface-hub>=0.24.0
+kaggle>=1.6.0          # corpus download (used from the Colab notebook)
+
+# Optional: only needed if you set load_in_4bit in the config, which the
+# default 0.5B setup does not. On Windows use bitsandbytes-windows.
+# bitsandbytes>=0.43.0
+
+# Note: metrics (CER/WER) are implemented in src/metrics.py with no
+# dependencies, so the eval harness imports and unit-tests on a plain laptop.

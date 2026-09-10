@@ -1,0 +1,50 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# --- Secrets ---
+.env
+.env.*
+*.key
+hf_token*
+
+# --- Model weights & checkpoints (use the Hub, not git) ---
+outputs/
+checkpoints/
+runs/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.gguf
+*.ckpt
+
+# --- Datasets (keep raw corpora out of git) ---
+data/*
+!data/README.md
+!data/sample/
+*.jsonl
+!data/sample/*.jsonl
+*.arrow
+*.parquet
+
+# --- Experiment tracking ---
+wandb/
+mlruns/
+.tensorboard/
+lightning_logs/
+
+# --- HF / torch caches ---
+.cache/
+.hf_cache/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

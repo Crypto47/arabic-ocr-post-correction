@@ -1,0 +1,40 @@
+# LoRA SFT for Arabic OCR post-correction.
+# Sized for a free Colab T4 (16GB, no bf16 — see train.py's precision guard).
+
+model:
+  base_model: Qwen/Qwen2.5-0.5B-Instruct
+  trust_remote_code: true
+  attn_implementation: sdpa
+  # 0.5B fits in fp16 on a T4 with room to spare, so skip 4-bit: quantizing
+  # this small a model costs accuracy on a character-precision task for no
+  # memory benefit. Flip to true only if you scale to 3B+.
+  load_in_4bit: false
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+data:
+  train_file: data/processed/train.jsonl
+  eval_file: data/processed/eval.jsonl
+  max_seq_length: 768        # segments are capped at 400 chars; 768 tokens is ample
+
+training:
+  output_dir: outputs/arabic-ocr-correct
+  num_train_epochs: 2
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4      # effective batch = 32
+  learning_rate: 2.0e-4
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.01
+  optim: adamw_torch
+  gradient_checkpointing: true
+  logging_steps: 25
+  eval_strategy: epoch
+  save_strategy: epoch
+  save_total_limit: 2
+  seed: 42
+  report_to: none

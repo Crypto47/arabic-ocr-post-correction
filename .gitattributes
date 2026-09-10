@@ -1,0 +1,6 @@
+# Authored on Windows, executed on Colab's Linux. Normalize to LF in the repo
+# so shell scripts and shebangs do not arrive with stray carriage returns.
+* text=auto eol=lf
+*.ipynb text eol=lf
+*.png binary
+*.jpg binary
