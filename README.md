@@ -8,6 +8,8 @@ raw OCR   العلم نور يضنء طزيق الإنسان في الحتياة
 corrected العلم نور يضيء طريق الإنسان في الحياة، والجهل ظلام دامس
 ```
 
+**Model:** https://huggingface.co/Sheeda/arabic-ocr-post-correction-0.5b
+
 > **Status: working.** Trained on 57k pairs and scored on two real corpora.
 > Cuts word error rate by 50% while improving character accuracy. All numbers
 > are measured, not estimated — but the corruption is synthetic, so they
@@ -194,7 +196,8 @@ notebooks/             the Colab training notebook
   out of distribution.
 - The precision guard in `train.py` detects the absence of bf16 on Turing GPUs
   and falls back to fp16. Hardcoding bf16 fails on a free Colab T4.
-- Weights are not committed. The adapter is published to the HuggingFace Hub;
+- Weights are not committed. The adapter is published to the HuggingFace Hub
+  at [Sheeda/arabic-ocr-post-correction-0.5b](https://huggingface.co/Sheeda/arabic-ocr-post-correction-0.5b);
   `.gitignore` keeps checkpoints out of git.
 
 ## License
