@@ -5,7 +5,7 @@ correction, both measured against the clean reference. A model that does not
 beat the baseline is not doing anything, however good its loss curve looked.
 
 Usage:
-    python src/evaluate.py --adapter outputs/arabic-ocr-correct/final \
+    python src/evaluate.py --adapter outputs/arabic-ocr-post-correction/final \
         --eval-file data/processed/eval.jsonl --limit 500
 """
 

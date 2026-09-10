@@ -87,7 +87,7 @@ cannot beat its own base model has demonstrated nothing.
 
 Training runs on Colab — no local GPU or disk required.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Crypto47/arabic-ocr-correct/blob/main/notebooks/train_colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Crypto47/arabic-ocr-post-correction/blob/main/notebooks/train_colab.ipynb)
 
 The notebook clones this repo, pulls a Kaggle corpus, builds the pairs, trains,
 scores base vs. finetuned, and pushes the adapter to the Hub.
@@ -106,8 +106,8 @@ Full training locally:
 pip install -r requirements.txt
 python src/build_dataset.py --input data/raw --output data/processed
 python src/train.py --config configs/qwen05b_lora.yaml
-python src/evaluate.py --adapter outputs/arabic-ocr-correct/final
-python src/infer.py --adapter outputs/arabic-ocr-correct/final --text "<noisy arabic>"
+python src/evaluate.py --adapter outputs/arabic-ocr-post-correction/final
+python src/infer.py --adapter outputs/arabic-ocr-post-correction/final --text "<noisy arabic>"
 ```
 
 ## Layout
