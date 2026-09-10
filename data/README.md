@@ -22,15 +22,21 @@ actually fails under OCR, and the model learns to invert the corruption.
 That makes the corpus choice a choice of *clean text only*. Any Arabic corpus
 works; domain-matching it to the target documents is what matters.
 
-## Corpus candidates (sizes from the Kaggle API)
+## Corpus candidates
 
-| Dataset | Size | License | Note |
-|---|---|---|---|
-| [arabic-official-documents](https://www.kaggle.com/datasets/azharhasannsaif/arabic-official-documents) | 772 MB | CC-BY-4.0 | closest domain match |
-| [Arabic BERT Corpus](https://www.kaggle.com/datasets/abedkhooli/arabic-bert-corpus) | 1.7 GB | Original | clean MSA, high volume |
-| [Arabic Wikipedia dump 2021](https://www.kaggle.com/datasets/z3rocool/arabic-wikipedia-dump-2021) | 419 MB | Unknown | broad coverage |
-| [ANT Corpus](https://www.kaggle.com/datasets/antcorpus/antcorpus) | 10 MB | Other | small — good for a smoke test |
-| [Tashkeela Clean](https://www.kaggle.com/datasets/ahmedmohsen2002/tashkeela-clean-arabic-diacritized-corpus) | 176 MB | **GPL-2** | copyleft; avoid if the weights may go commercial |
+This pipeline needs **clean Arabic text**. Some Arabic Kaggle datasets that
+sound textual actually ship scanned page images — those are for training an OCR
+engine, not correcting one. Data types below were read from Kaggle's API;
+"usability" is Kaggle's own rating.
+
+| Dataset | Size | Usability | License | Note |
+|---|---|---|---|---|
+| [AraSum](https://www.kaggle.com/datasets/mohamedbentalb/arasum) | 132 MB | 0.94 | Other | **notebook default** — news articles, clean |
+| [Arabic BERT Corpus](https://www.kaggle.com/datasets/abedkhooli/arabic-bert-corpus) | 1.7 GB | 0.94 | Original author | scale up to this for the real run |
+| [ANT Corpus](https://www.kaggle.com/datasets/antcorpus/antcorpus) | 10 MB | 0.75 | Other | fastest smoke test |
+| [Tashkeela Clean](https://www.kaggle.com/datasets/ahmedmohsen2002/tashkeela-clean-arabic-diacritized-corpus) | 176 MB | 0.82 | **GPL-2** | copyleft; avoid if the weights may go commercial |
+| [Arabic Wikipedia 2021](https://www.kaggle.com/datasets/z3rocool/arabic-wikipedia-dump-2021) | 419 MB | 0.25 | Unknown | unlabelled licence, thin dataset page |
+| ~~[arabic-official-documents](https://www.kaggle.com/datasets/azharhasannsaif/arabic-official-documents)~~ | 772 MB | 0.63 | CC-BY-4.0 | **unusable here** — tagged `data type > image`, scanned pages with no text |
 
 Record whichever you used, and its license, before publishing results.
 

@@ -29,7 +29,38 @@ SENTENCE_END = re.compile(r"(?<=[.!?؟।\n])\s+")
 ARABIC_CHAR = re.compile(r"[\u0621-\u064A]")
 
 
-SUPPORTED = {".txt", ".jsonl", ".json", ".csv", ".tsv"}
+SUPPORTED = {".txt", ".jsonl", ".json", ".csv", ".tsv", ".parquet"}
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".gif", ".pdf"}
+
+
+def _diagnose(path: Path) -> str:
+    """Explain what was actually found, so a wrong dataset pick is obvious.
+
+    Several Arabic Kaggle datasets that sound textual ship scanned page images
+    instead — that is a corpus for training an OCR engine, not for correcting
+    one, and it has no text to corrupt.
+    """
+    counts: dict[str, int] = {}
+    for f in path.rglob("*"):
+        if f.is_file():
+            counts[f.suffix.lower() or "(no extension)"] = (
+                counts.get(f.suffix.lower() or "(no extension)", 0) + 1
+            )
+    if not counts:
+        return f"{path} is empty."
+
+    found = ", ".join(f"{ext} x{n}" for ext, n in
+                      sorted(counts.items(), key=lambda kv: -kv[1])[:8])
+    msg = [f"No readable text files under {path}.",
+           f"Found: {found}",
+           f"Supported: {', '.join(sorted(SUPPORTED))}"]
+    if sum(n for ext, n in counts.items() if ext in IMAGE_SUFFIXES) > 0:
+        msg.append(
+            "\nThis looks like an image dataset. This pipeline needs a corpus of "
+            "clean Arabic TEXT to corrupt into training pairs — scanned pages "
+            "cannot be used here. Pick a text corpus instead."
+        )
+    return "\n".join(msg)
 
 
 def _pick_text_column(header: list[str], preferred: str) -> str | None:
@@ -55,12 +86,26 @@ def iter_text(path: Path, text_field: str):
     else:
         files = [path]
     if not files:
-        sys.exit(f"no {'/'.join(sorted(SUPPORTED))} files found under {path}")
+        sys.exit(_diagnose(path))
 
     print(f"reading {len(files)} file(s) from {path}")
     for f in files:
         suffix = f.suffix.lower()
-        if suffix in {".csv", ".tsv"}:
+        if suffix == ".parquet":
+            try:
+                import pandas as pd
+            except ImportError:
+                print(f"  skipping {f.name}: pandas needed for .parquet")
+                continue
+            frame = pd.read_parquet(f)
+            col = _pick_text_column(list(frame.columns), text_field)
+            if col is None:
+                continue
+            print(f"  {f.name}: using column {col!r}")
+            for value in frame[col].dropna().astype(str):
+                if value.strip():
+                    yield value
+        elif suffix in {".csv", ".tsv"}:
             delim = "\t" if suffix == ".tsv" else ","
             with f.open(encoding="utf-8", errors="replace", newline="") as fh:
                 reader = csv.DictReader(fh, delimiter=delim)

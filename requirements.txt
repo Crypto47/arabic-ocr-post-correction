@@ -9,7 +9,7 @@ pyyaml>=6.0
 
 # Publishing
 huggingface-hub>=0.24.0
-kaggle>=1.6.0          # corpus download (used from the Colab notebook)
+kagglehub>=0.3.0       # corpus download + unpack (used from the Colab notebook)
 
 # Optional: only needed if you set load_in_4bit in the config, which the
 # default 0.5B setup does not. On Windows use bitsandbytes-windows.
